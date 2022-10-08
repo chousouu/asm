@@ -1,0 +1,16 @@
+push 1 ;bebra
+push 2 ;bebra
+push -12
+:4
+push -14 ;bebra
+push 4444 ;bebra
+dup 
+jmp :4
+pop ;bebra 
+pop ;bebra
+add
+:12 
+dup ;bebra
+mul  
+jmp :12
+halt ;bebra
