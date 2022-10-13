@@ -1,5 +1,5 @@
 #include "asm.h"
-#include "stack.h"
+#include "enum.h"
 
 FILE *WriteBinaryFile(int *machine_code_buffer, int machine_symbols_count)
 {
@@ -10,7 +10,7 @@ FILE *WriteBinaryFile(int *machine_code_buffer, int machine_symbols_count)
         return NULL;
     } 
 
-    fwrite("CP", sizeof(char), 2, fp); //signature
+    fwrite("LILY", sizeof(char), 4, fp); //signature
 
     fwrite(machine_code_buffer, sizeof(char), machine_symbols_count * sizeof(int), fp);
 
@@ -135,7 +135,7 @@ char **GetString(char* buffer, const int string_count)
 
 int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, int *machine_symbols_count)
 {
-    int *machine_code_buffer = (int*)calloc(2 * strings_count, sizeof(int)); // ocenka sverxu (cmd_amount* (max amount of args per cmd))
+    int *machine_code_buffer = (int*)calloc(3 * strings_count, sizeof(int)); // ocenka sverxu (cmd_amount* (max amount of args per cmd))
 
     int ip = 0;
     int prev_push = 0; //TODO: change name since it will be used for cmds with 2 args, not only push
@@ -159,46 +159,61 @@ int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, i
             }
         }
 
-        sscanf(stringed_buffer[i], "%[^:-123456789]%n%[:]%n", cmd, &cmd_size, &colon, &cmd_colon_size);
+        sscanf(stringed_buffer[i], "%[^:-123456789 ]%n %[:]%n", cmd, &cmd_size, &colon, &cmd_colon_size);
 
         DEB("[%s / %d / %c / %d ]\n", cmd, cmd_size, colon, cmd_colon_size);
 // : labels 
 // TODO: label with names   
-// ебаная хуйня cmd_size мб вообще юзать блять цифры а не сканфную переменную для длины? я же длину и так подчищаю... 
-// ^ пофиксит баг если джампить на именную : cmd_size(jmp next) == 8 => v strincmp jmp не зайдет 
         if(strincmp(cmd, "jmp", cmd_size) == 0)
-        {
+        {  // dealing with labels
             DEB("joined jmp with command : %s\n", cmd);
             int jmp_to = 0;
             
-            if(colon != ':')
+            if(colon != ':') // jmp to not label  + to named label
             {
-                sscanf(stringed_buffer[i] + cmd_size, " %d", &jmp_to);
-                DEB("[%s]colon != : %d\n", cmd, jmp_to);
-                machine_code_buffer[ip++] = CMD_JMP;
-                machine_code_buffer[ip++] = jmp_to;
+                if(sscanf(stringed_buffer[i] + cmd_size, " %d", &jmp_to))
+                {
+                    DEB("[%s]colon != : %d\n", cmd, jmp_to);
+                    machine_code_buffer[ip++] = CMD_JMP;
+                    machine_code_buffer[ip++] = jmp_to;
+                }
+                else
+                {
+                    char labels_name[20]; 
+                    int labels_size = 0;
+                    sscanf(stringed_buffer[i] + cmd_size + 1, " %[^:]%n", labels_name, &labels_size);
+                    DEB("scanned LABEL  = %s [%d]\n", labels_name, labels_size);
+                    machine_code_buffer[ip++] = CMD_JMP;
+                    DEB("m_c_b : JMP [ip = %d]\n", ip - 1);
+                    for(int i = 0; i < LABEL_MAX; i++)
+                    {
+                        DEB("comparing %s, %s, %d\n", labels[i].label_name, labels_name, labels_size);
+                        if(strincmp(labels[i].label_name, labels_name, labels_size) == 0)
+                        {
+                            DEB("found in jmp%d\n", i);
+                            machine_code_buffer[ip++] = labels[i].label_to;
+                            DEB("ip = %d", ip);
+                            break;
+                        }
+                    }
+                }
             }
             else 
             {
-                if(sscanf(stringed_buffer[i] + cmd_colon_size, " %d", &jmp_to))
-                {
-                DEB("colon ==  : %d\n", jmp_to);
+                sscanf(stringed_buffer[i] + cmd_size, " :%d", &jmp_to);
+                DEB("<colon ==  :> %d\n", jmp_to);
                 machine_code_buffer[ip++] = CMD_JMP;
                 machine_code_buffer[ip++] = labels[jmp_to].label_to;
-                }
-                else 
-                {
-                    // sscanf(stringed_buffer, ":%s",);
-                }
+                DEB("machine_code_buffer[%d] = labels[%d].label_to = %d\n", ip - 1, jmp_to, labels[jmp_to].label_to);
             }
         }
         else if(char *colonn = strchr(stringed_buffer[i], ':'))  // ну это хуйня блять сканфная не работает если строчка ":цифра"    
-        {
+        { // adding labels; 
             DEB("ebanaya metka : ");
             int label_number = 0;
             if(sscanf(colonn, ":%d", &label_number) == 1)
             {
-                DEB("label_number = %d ; \n",label_number);
+                DEB("label_number = %d. = %d ; \n",label_number, ip);
                 labels[label_number].label_to = ip;
             }
             else 
@@ -211,6 +226,9 @@ int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, i
                     {
                         labels[i].label_to = ip;
                         labels[i].label_name = labels_name;
+                        DEB("found free label for \"%s\"on %d\n",labels_name, i); // хуйня нерабочая
+                        DEB("labels[i].label_name: %s\n", labels[i].label_name);
+                        break;
                     }
                 }
             }
@@ -280,6 +298,8 @@ int main() // TODO: if bebra.txt has empty string, the result of the program is 
     int *machined_buffer = Assemble(string_buffer, labels, strings_count, &machine_symbols_count);
 
     WriteBinaryFile(machined_buffer, machine_symbols_count);
-   
 
+    DEB("machine_symbols_count :%d\n", machine_symbols_count);
+   
+    DEB("done");
 }
