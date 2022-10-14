@@ -9,4 +9,13 @@ int  CountInts     (const char *filename)                                       
 void Run           (struct Stack *stk1, int *machine_code_buffer, int machine_cmds_count);
 
 
+
+/*
+bool CheckSignature(char *machine_code_buffer)                                            ;
+char *ReadToBuffer (const char *filename)                                                ;
+int  CountInts     (const char *filename)                                                ;
+void Run           (struct Stack *stk1, char *machine_code_buffer, int machine_cmds_count);
+*/
+
+
 #endif
