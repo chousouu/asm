@@ -66,28 +66,26 @@ int strincmp(const char *str1, const char *str2, int n)
     return 0;
 }
 
-char *ReadToBuffer(const char *filename)
-{
-    int size = CountSymbols(filename);
-
+char *ReadToBuffer(const char *filename, int size)
+{    
     FILE *fp = fopen(filename, "r");
 
-    char *buffer = (char *)calloc(size, sizeof(char));
+    char *buffer = (char *)calloc(size + 1, sizeof(char));
 
-    int PutZero = fread(buffer, sizeof(char), size, fp);
-    buffer[PutZero] = '\0';
+    fread(buffer, sizeof(char), size, fp);
+    buffer[size] = '\0';
 
     return buffer;
 }
-void RedundantSpaces(char *buffer)
+void RedundantSpaces(char *buffer, int size)
 {
     char c = 0;
     int check = 1;
     int i = 0; //for before array
     int k = 0; // counter for after array
-
-    while((c = buffer[i++]) != '\0')
+    for(i = 0; i < size; i++) // ?or for(i = 0; i < size, c = buffer[i]; i++)   
     {
+        c = buffer[i];
         if(c == '\n' && check == 0)
         {
             buffer[k] = c;
@@ -112,37 +110,39 @@ void RedundantSpaces(char *buffer)
             }
         }
     }
-
-    buffer[k] = '\n';
-    buffer[k + 1] = '\0';
+    buffer[k] = '\0';    
 }
 
 int CountStrings(char *buffer)
 {
     int count = 0;
+    int i = 0;
 
-    for(int i = 0; buffer[i] != '\0'; i++)
+    for(i = 0; buffer[i] != '\0'; i++)
     {
         if(buffer[i] == '\n')
         {
             count++;
         }
     }
+    if(buffer[i - 1] != '\n')
+    {
+        count++;
+    }
+
     return count;
 }
 
 char **GetString(char* buffer, const int string_count)
 {
     char **stringed_buffer = (char**)calloc(string_count, sizeof(char*));
-    char *news = buffer;
+    char *news = strtok(buffer, "\n");
 
     for(int i = 0; i < string_count; i++)
     {
         stringed_buffer[i] = news;
-        news = strchr(news, '\n');
-        *news++ = '\0';      
+        news = strtok(NULL, "\n"); 
     }
-    // strtok ^^^^^^^^^^^^
 
     return stringed_buffer;
 }
@@ -295,9 +295,13 @@ int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, i
 
 int main() // TODO: if bebra.txt has empty string, the result of the program is unexpected???????? *(check again, ive might been drunk)
 {
-    char *buffer = ReadToBuffer("bebra.txt");
-    RedundantSpaces(buffer);
+    int symbols_count = CountSymbols("bebra.txt");
+    char *buffer = ReadToBuffer("bebra.txt", symbols_count);
+    RedundantSpaces(buffer, symbols_count); 
+    
     int strings_count = CountStrings(buffer);
+
+    
     char **string_buffer = GetString(buffer, strings_count);
 
     int tokens = 0;
@@ -326,5 +330,8 @@ int main() // TODO: if bebra.txt has empty string, the result of the program is 
    
     DEB("done");
 
+    free(buffer);
+    free(string_buffer);
+    free(opcode_buffer);
     return 0;
 }
