@@ -86,13 +86,12 @@ static long unsigned HashCounter(void *data, int len)
         len -= 4;
     }
 
-    c += datawalker[2] << 24;
-    b += datawalker[1] << 16;
-    a += datawalker[0] << 8 ; 
+    c += datawalker[2] << 16;
+    b += datawalker[1] << 8 ;
+    a += datawalker[0] << 1 ; 
 
     hash_counter = a * (fool) + b * (fool + lightning) + c * (fool + 311);
 
-    hash_counter += (hash_counter << 3) | (hash_counter >> 2);
     return hash_counter;
 }
 
@@ -203,16 +202,12 @@ int SearchLabel(struct Label *labels, unsigned long hash)
             return i;
         }
     }
-    // for jumps with label after jmp, 
     if(hash == LABEL_FREE)
     {
         printf("Could not find free label. Increase LABEL_MAX value in \"asm.h\" if you need more labels.\n");
-        return -1;
     }
-    else
-    {
-        return 999;
-    }
+
+    return -1;
 }
 
 int AddLabel(struct Label *labels, char *str, int ip)
@@ -220,52 +215,18 @@ int AddLabel(struct Label *labels, char *str, int ip)
     int label_number         = -1;
     unsigned long hash_label =  0;
 
-    if(str[0] == ':')
-    {
-        int len = 0;
-        sscanf(str, ":%d%n", &label_number, &len);
-        hash_label = HashCounter(str, len);
-        DEB("labels[%d].hash = %lu && labels.to = %d\n", label_number, labels[label_number].label_hash, labels[label_number].label_to);
-            DEB("ip == %d len == %d\n", ip, len);
+    hash_label = HashCounter(str, strlen(str));
+    DEB("ADD LABEL : hash(%s) == %lu\n", str, hash_label);
+    DEB("Search == %d\n", SearchLabel(labels, hash_label));
         
-        if(labels[label_number].label_hash != LABEL_FREE && labels[label_number].label_to != LABEL_TO_UNTOUCHED)
-        {
-            if(labels[label_number].label_to != ip)
-            {
-                labels[SearchLabel(labels, LABEL_FREE)] = labels[label_number];
-                labels[label_number].label_to = ip;
-                labels[label_number].label_hash = hash_label; 
-            }
-        }
-        else
-        {
-            labels[label_number].label_to = ip;
-            labels[label_number].label_hash = hash_label;
-
-            DEB("to = %d; hash = %lu\n", labels[label_number].label_to, labels[label_number].label_hash);
-        }
-    }
-    else
-    {
-        hash_label = HashCounter(str, strlen(str));
-        DEB("ADD LABEL : hash(%s) == %lu\n", str, hash_label);
-        DEB("Search == %d\n", SearchLabel(labels, hash_label));
-        
-        int tempversion = 0;
-        for(int i = 0; i < LABEL_MAX; i++)
-        {
-            if(labels[i].label_hash == hash_label)
-            {
-                tempversion == 1;
-            }
-        }
-        if(tempversion == 0)
+        label_number = SearchLabel(labels, hash_label);
+        if(label_number == -1)
         {
             label_number = SearchLabel(labels, LABEL_FREE);
             DEB("number = %d\n", label_number);
-            labels[label_number].label_to   = ip;
-            labels[label_number].label_hash = hash_label;
         }
+        labels[label_number].label_to   = ip;
+        labels[label_number].label_hash = hash_label;
 
         // if(SearchLabel(labels, hash_label) != 999)
         // {
@@ -274,7 +235,6 @@ int AddLabel(struct Label *labels, char *str, int ip)
         //     labels[label_number].label_to   = ip;
         //     labels[label_number].label_hash = hash_label;
         // }
-    }
     DEB("LABELS FOM addlabel; label_number = %d %lu\n", labels[label_number].label_to, labels[label_number].label_hash);
     for(int i = 0; i < LABEL_MAX; i++)
     {
@@ -336,12 +296,12 @@ int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, i
         DEB("[%s / %d]", cmd, cmd_size);
 
         if(strincmp(cmd, "jmp", cmd_size) == 0)
-        {  // dealing with labels
+        {
             machine_code_buffer[ip++] = CMD_JMP;
             machine_code_buffer[ip++] = jmp_to(labels, stringed_buffer[i] + cmd_size + 1);
         }
-        else if(strchr(stringed_buffer[i], ':'))  // ну это хуйня блять сканфная не работает если строчка ":цифра"    
-        { // adding labels; 
+        else if(strchr(stringed_buffer[i], ':'))     
+        { 
             AddLabel(labels, stringed_buffer[i], ip);
         }
         else if(strincmp(cmd, "push", cmd_size) == 0)
@@ -423,12 +383,13 @@ int main() // TODO: if bebra.txt has empty string, the result of the program is 
 
     DEB("tokens :%d\n", tokens);
    
-    DEB("done");
+    DEB("done\n");
 
     free(buffer);
     free(string_buffer);
     free(opcode_buffer);
     free(opcode_buffer1);
+    DEB("freed\n");
 
     return 0;
 }
