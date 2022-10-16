@@ -193,8 +193,6 @@ void RemoveComments(char *stringed_buffer)
 
 int SearchLabel(struct Label *labels, unsigned long hash)
 {
-    DEB("search received hash = %lu\n", hash);
-
     for(int i = 0; i < LABEL_MAX; i++)
     {
         if(labels[i].label_hash == hash)
@@ -216,54 +214,32 @@ int AddLabel(struct Label *labels, char *str, int ip)
     unsigned long hash_label =  0;
 
     hash_label = HashCounter(str, strlen(str));
-    DEB("ADD LABEL : hash(%s) == %lu\n", str, hash_label);
-    DEB("Search == %d\n", SearchLabel(labels, hash_label));
         
         label_number = SearchLabel(labels, hash_label);
         if(label_number == -1)
         {
             label_number = SearchLabel(labels, LABEL_FREE);
-            DEB("number = %d\n", label_number);
         }
         labels[label_number].label_to   = ip;
         labels[label_number].label_hash = hash_label;
 
-        // if(SearchLabel(labels, hash_label) != 999)
-        // {
-        //     label_number = SearchLabel(labels, LABEL_FREE);
-        //     DEB("number = %d\n", label_number);
-        //     labels[label_number].label_to   = ip;
-        //     labels[label_number].label_hash = hash_label;
-        // }
-    DEB("LABELS FOM addlabel; label_number = %d %lu\n", labels[label_number].label_to, labels[label_number].label_hash);
-    for(int i = 0; i < LABEL_MAX; i++)
-    {
-        DEB("%d ", labels[i].label_to);
-    }
-    DEB("\n");
     return label_number;
 }
 
 int jmp_to(struct Label *labels, char *str)
 {
-    DEB("jmp_to str1 = \"%s\"\n", str);
-
     if(strchr(str, ':') == NULL) // 1
     {
         int jmp_ip = -1;
         sscanf(str, " %d", &jmp_ip);
-        DEB("jmp_ip = %d\n", jmp_ip);
+
         return jmp_ip;
     }
     else 
     {
         unsigned long hash_label = HashCounter(str, strlen(str));
 
-        DEB("hashcounter(\"%s\") == %lu \n", str, hash_label);
-
         int index = SearchLabel(labels, hash_label);
-
-        DEB("index = %d\n", index);
 
         if(index == -1)
         {
@@ -290,15 +266,12 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
 
         sscanf(stringed_buffer[i], "%[^:-123456789 ]%n", cmd, &cmd_size);
 
-        DEB("[%s / %d]", cmd, cmd_size);
-
         if(strincmp(cmd, "jmp", cmd_size) == 0)
         {
             opcode_buffer[ip++] = CMD_JMP;
             int jmp_ip = jmp_to(labels, stringed_buffer[i] + cmd_size + 1);
             if(jmp_ip == LABEL_TO_UNTOUCHED)
             {
-                DEB("jmp after (i,ip) = (%d, %d)\n", i, ip);
                 assembler->jmp_after[assembler->jmp_after_count++] = i;
                 assembler->jmp_after[assembler->jmp_after_count++] = ip;
             }
@@ -312,20 +285,18 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
         {
             int push_value = 0;
             sscanf(stringed_buffer[i] + cmd_size, " %d", &push_value);
-            DEB("push value : %d\n", push_value);
+
             opcode_buffer[ip++] = CMD_PUSH;
             opcode_buffer[ip++] = push_value; 
             prev_push = 1;
         }
         else if(strincmp(cmd, "pop", cmd_size) == 0)
         {
-            DEB("popping\n");
             opcode_buffer[ip++] = CMD_POP;
             prev_push = 0;
         }
         else if(strincmp(cmd, "dup", cmd_size) == 0)
         {
-            DEB("in dup..\n");
             if(prev_push == 1)
             {
                 opcode_buffer[ip]     = CMD_PUSH;
@@ -346,10 +317,8 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
         ELSE_IF_CMP(HALT)
     }
 
-    DEB("jmp after count %d\n", assembler->jmp_after_count);
     for(int i = 0; i < assembler->jmp_after_count; i++)
     {// even elem = i, odd elem = ip, 
-        DEB("(ip,i) = (%d, %d)\n", assembler->jmp_after[i + 1], assembler->jmp_after[i]);
         opcode_buffer[assembler->jmp_after[i + 1]] = jmp_to(labels, stringed_buffer[assembler->jmp_after[i]] + 4);
         i++;
     }
@@ -396,17 +365,15 @@ int main()
     }
 
 
-    WriteBinaryFile(assembler.opcode_buffer, assembler.tokens); // check return value
-
-    DEB("tokens :%d\n", assembler.tokens);
+    if(!WriteBinaryFile(assembler.opcode_buffer, assembler.tokens))
+    {
+        printf("Couldnt write binary file\n");
+    }
    
-    DEB("done\n");
-
     free(buffer);
     free(string_buffer);
     free(assembler.opcode_buffer);
     free(assembler.jmp_after);
-    DEB("freed\n");
 
     return 0;
 }
