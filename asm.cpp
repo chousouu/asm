@@ -246,9 +246,6 @@ int AddLabel(struct Label *labels, char *str, int ip)
 
 int jmp_to(struct Label *labels, char *str)
 {
-// jmp 18       -1
-// jmp :12      -2
-// jmp next:    -3
     DEB("jmp_to str1 = \"%s\"\n", str);
 
     if(strchr(str, ':') == NULL) // 1
@@ -277,14 +274,14 @@ int jmp_to(struct Label *labels, char *str)
     }
 }
 
-int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, int *machine_symbols_count)
+int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assembler)
 {
-    int *machine_code_buffer = (int*)calloc(3 * strings_count, sizeof(int));
+    int *opcode_buffer = (int*)calloc(3 * assembler->strings_count, sizeof(int));
 // consider resizing array
     int ip = 0;
     int prev_push = 0; //TODO: change name since it will be used for cmds with 2 args, not only push
 
-    for(int i = 0; i < strings_count; i++)
+    for(int i = 0; i < assembler->strings_count; i++)
     {
         char cmd[50] = {}; 
         int cmd_size = 0;
@@ -297,8 +294,15 @@ int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, i
 
         if(strincmp(cmd, "jmp", cmd_size) == 0)
         {
-            machine_code_buffer[ip++] = CMD_JMP;
-            machine_code_buffer[ip++] = jmp_to(labels, stringed_buffer[i] + cmd_size + 1);
+            opcode_buffer[ip++] = CMD_JMP;
+            int jmp_ip = jmp_to(labels, stringed_buffer[i] + cmd_size + 1);
+            if(jmp_ip == LABEL_TO_UNTOUCHED)
+            {
+                DEB("jmp after (i,ip) = (%d, %d)\n", i, ip);
+                assembler->jmp_after[assembler->jmp_after_count++] = i;
+                assembler->jmp_after[assembler->jmp_after_count++] = ip;
+            }
+            opcode_buffer[ip++] = jmp_ip;
         }
         else if(strchr(stringed_buffer[i], ':'))     
         { 
@@ -309,14 +313,14 @@ int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, i
             int push_value = 0;
             sscanf(stringed_buffer[i] + cmd_size, " %d", &push_value);
             DEB("push value : %d\n", push_value);
-            machine_code_buffer[ip++] = CMD_PUSH;
-            machine_code_buffer[ip++] = push_value; 
+            opcode_buffer[ip++] = CMD_PUSH;
+            opcode_buffer[ip++] = push_value; 
             prev_push = 1;
         }
         else if(strincmp(cmd, "pop", cmd_size) == 0)
         {
             DEB("popping\n");
-            machine_code_buffer[ip++] = CMD_POP;
+            opcode_buffer[ip++] = CMD_POP;
             prev_push = 0;
         }
         else if(strincmp(cmd, "dup", cmd_size) == 0)
@@ -324,13 +328,13 @@ int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, i
             DEB("in dup..\n");
             if(prev_push == 1)
             {
-                machine_code_buffer[ip]     = CMD_PUSH;
-                machine_code_buffer[ip + 1] = machine_code_buffer[ip - 1];
+                opcode_buffer[ip]     = CMD_PUSH;
+                opcode_buffer[ip + 1] = opcode_buffer[ip - 1];
                 ip += 2; 
             }
             else 
             {
-                machine_code_buffer[ip] = machine_code_buffer[ip - 1];
+                opcode_buffer[ip] = opcode_buffer[ip - 1];
                 ip++;  
             }
             prev_push = 0;
@@ -341,25 +345,37 @@ int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, i
         ELSE_IF_CMP(OUT)
         ELSE_IF_CMP(HALT)
     }
-    *machine_symbols_count = ip;
 
-    return machine_code_buffer;
+    DEB("jmp after count %d\n", assembler->jmp_after_count);
+    for(int i = 0; i < assembler->jmp_after_count; i++)
+    {// even elem = i, odd elem = ip, 
+        DEB("(ip,i) = (%d, %d)\n", assembler->jmp_after[i + 1], assembler->jmp_after[i]);
+        opcode_buffer[assembler->jmp_after[i + 1]] = jmp_to(labels, stringed_buffer[assembler->jmp_after[i]] + 4);
+        i++;
+    }
+
+    assembler->tokens = ip;
+
+    return opcode_buffer;
 }
 
 
 
-int main() // TODO: if bebra.txt has empty string, the result of the program is unexpected???????? *(check again, ive might been drunk)
+int main() 
 {
     int symbols_count = CountSymbols("bebra.txt");
     char *buffer = ReadToBuffer("bebra.txt", symbols_count);
     RedundantSpaces(buffer, symbols_count); 
     
-    int strings_count = CountStrings(buffer);
+    struct ASM assembler =
+    {
+        .opcode_buffer = NULL,
+        .strings_count = CountStrings(buffer),
+        .tokens = 0,
+        .jmp_after = (int*)calloc(LABEL_MAX * 2, sizeof(int)),
+        .jmp_after_count = 0,
+    };
     
-    char **string_buffer = GetString(buffer, strings_count);
-
-    int tokens = 0;
-
     struct Label labels[LABEL_MAX] = {};
 
     for(int i = 0; i < LABEL_MAX; i++)
@@ -368,27 +384,28 @@ int main() // TODO: if bebra.txt has empty string, the result of the program is 
         labels[i].label_hash = LABEL_FREE;
     }
 
-    int *opcode_buffer = Assemble(string_buffer, labels, strings_count, &tokens);
-    //   ^^^^^^
-    // check if null
-    if(opcode_buffer == NULL)
+    char **string_buffer = GetString(buffer, assembler.strings_count);
+    
+    assembler.opcode_buffer = Assemble(string_buffer, labels, &assembler);
+
+    
+    if(assembler.opcode_buffer == NULL)
     {
         printf("opcode buffer is NULL\n");  
         return 0;
     }
-    int *opcode_buffer1 = Assemble(string_buffer, labels, strings_count, &tokens);
 
 
-    WriteBinaryFile(opcode_buffer1, tokens); // check return value
+    WriteBinaryFile(assembler.opcode_buffer, assembler.tokens); // check return value
 
-    DEB("tokens :%d\n", tokens);
+    DEB("tokens :%d\n", assembler.tokens);
    
     DEB("done\n");
 
     free(buffer);
     free(string_buffer);
-    free(opcode_buffer);
-    free(opcode_buffer1);
+    free(assembler.opcode_buffer);
+    free(assembler.jmp_after);
     DEB("freed\n");
 
     return 0;
