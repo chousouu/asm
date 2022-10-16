@@ -66,6 +66,36 @@ int strincmp(const char *str1, const char *str2, int n)
     return 0;
 }
 
+static long unsigned HashCounter(void *data, int len)
+{
+    unsigned long a = 0 , b = 0, c = 0;
+    unsigned int fool      = 0xAF00L;
+    unsigned int lightning = 1988  ;
+
+    char *datawalker = (char*)data;
+    int hash_counter = 0;
+    while (len > 4)
+    {
+        a += fool++;
+        b += fool++;
+        c += fool++;
+
+        c = a << 2;
+        b = a << 3;
+        a = a << 1;
+        len -= 4;
+    }
+
+    c += datawalker[2] << 24;
+    b += datawalker[1] << 16;
+    a += datawalker[0] << 8 ; 
+
+    hash_counter = a * (fool) + b * (fool + lightning) + c * (fool + 311);
+
+    hash_counter += (hash_counter << 3) | (hash_counter >> 2);
+    return hash_counter;
+}
+
 char *ReadToBuffer(const char *filename, int size)
 {    
     FILE *fp = fopen(filename, "r");
@@ -77,6 +107,7 @@ char *ReadToBuffer(const char *filename, int size)
 
     return buffer;
 }
+
 void RedundantSpaces(char *buffer, int size)
 {
     char c = 0;
@@ -147,6 +178,145 @@ char **GetString(char* buffer, const int string_count)
     return stringed_buffer;
 }
 
+void RemoveComments(char *stringed_buffer)
+{
+    char *semicolon	 = strchr(stringed_buffer, ';');
+
+    if(semicolon != NULL)
+    {
+        int str_size = strlen(stringed_buffer);
+        for(int j = 0; semicolon + j < stringed_buffer + str_size ; j++)
+        {
+            semicolon[j] = '\0';
+        }
+    }
+}
+
+int SearchLabel(struct Label *labels, unsigned long hash)
+{
+    DEB("search received hash = %lu\n", hash);
+
+    for(int i = 0; i < LABEL_MAX; i++)
+    {
+        if(labels[i].label_hash == hash)
+        {
+            return i;
+        }
+    }
+    // for jumps with label after jmp, 
+    if(hash == LABEL_FREE)
+    {
+        printf("Could not find free label. Increase LABEL_MAX value in \"asm.h\" if you need more labels.\n");
+        return -1;
+    }
+    else
+    {
+        return 999;
+    }
+}
+
+int AddLabel(struct Label *labels, char *str, int ip)
+{
+    int label_number         = -1;
+    unsigned long hash_label =  0;
+
+    if(str[0] == ':')
+    {
+        int len = 0;
+        sscanf(str, ":%d%n", &label_number, &len);
+        hash_label = HashCounter(str, len);
+        DEB("labels[%d].hash = %lu && labels.to = %d\n", label_number, labels[label_number].label_hash, labels[label_number].label_to);
+            DEB("ip == %d len == %d\n", ip, len);
+        
+        if(labels[label_number].label_hash != LABEL_FREE && labels[label_number].label_to != LABEL_TO_UNTOUCHED)
+        {
+            if(labels[label_number].label_to != ip)
+            {
+                labels[SearchLabel(labels, LABEL_FREE)] = labels[label_number];
+                labels[label_number].label_to = ip;
+                labels[label_number].label_hash = hash_label; 
+            }
+        }
+        else
+        {
+            labels[label_number].label_to = ip;
+            labels[label_number].label_hash = hash_label;
+
+            DEB("to = %d; hash = %lu\n", labels[label_number].label_to, labels[label_number].label_hash);
+        }
+    }
+    else
+    {
+        hash_label = HashCounter(str, strlen(str));
+        DEB("ADD LABEL : hash(%s) == %lu\n", str, hash_label);
+        DEB("Search == %d\n", SearchLabel(labels, hash_label));
+        
+        int tempversion = 0;
+        for(int i = 0; i < LABEL_MAX; i++)
+        {
+            if(labels[i].label_hash == hash_label)
+            {
+                tempversion == 1;
+            }
+        }
+        if(tempversion == 0)
+        {
+            label_number = SearchLabel(labels, LABEL_FREE);
+            DEB("number = %d\n", label_number);
+            labels[label_number].label_to   = ip;
+            labels[label_number].label_hash = hash_label;
+        }
+
+        // if(SearchLabel(labels, hash_label) != 999)
+        // {
+        //     label_number = SearchLabel(labels, LABEL_FREE);
+        //     DEB("number = %d\n", label_number);
+        //     labels[label_number].label_to   = ip;
+        //     labels[label_number].label_hash = hash_label;
+        // }
+    }
+    DEB("LABELS FOM addlabel; label_number = %d %lu\n", labels[label_number].label_to, labels[label_number].label_hash);
+    for(int i = 0; i < LABEL_MAX; i++)
+    {
+        DEB("%d ", labels[i].label_to);
+    }
+    DEB("\n");
+    return label_number;
+}
+
+int jmp_to(struct Label *labels, char *str)
+{
+// jmp 18       -1
+// jmp :12      -2
+// jmp next:    -3
+    DEB("jmp_to str1 = \"%s\"\n", str);
+
+    if(strchr(str, ':') == NULL) // 1
+    {
+        int jmp_ip = -1;
+        sscanf(str, " %d", &jmp_ip);
+        DEB("jmp_ip = %d\n", jmp_ip);
+        return jmp_ip;
+    }
+    else 
+    {
+        unsigned long hash_label = HashCounter(str, strlen(str));
+
+        DEB("hashcounter(\"%s\") == %lu \n", str, hash_label);
+
+        int index = SearchLabel(labels, hash_label);
+
+        DEB("index = %d\n", index);
+
+        if(index == -1)
+        {
+            return LABEL_TO_UNTOUCHED; // -1 is label_to value by default 
+        }
+
+        return labels[index].label_to;
+    }
+}
+
 int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, int *machine_symbols_count)
 {
     int *machine_code_buffer = (int*)calloc(3 * strings_count, sizeof(int));
@@ -156,98 +326,23 @@ int *Assemble(char **stringed_buffer, struct Label *labels, int strings_count, i
 
     for(int i = 0; i < strings_count; i++)
     {
-        char cmd[100] = {}; 
+        char cmd[50] = {}; 
         int cmd_size = 0;
-        int cmd_colon_size = 0;
-        char colon      = '?';
 
-//; comments
-        char *semicolon	 = strchr(stringed_buffer[i], ';');
+        RemoveComments(stringed_buffer[i]);
 
-        if(semicolon != NULL)
-        {
-            int str_size = strlen(stringed_buffer[i]);
-            for(int j = 0; semicolon + j < stringed_buffer[i] + str_size ; j++)
-            {
-                semicolon[j] = '\0';
-            }
-        }
+        sscanf(stringed_buffer[i], "%[^:-123456789 ]%n", cmd, &cmd_size);
 
-        sscanf(stringed_buffer[i], "%[^:-123456789 ]%n %[:]%n", cmd, &cmd_size, &colon, &cmd_colon_size);
-
-        DEB("[%s / %d / %c / %d ]\n", cmd, cmd_size, colon, cmd_colon_size);
-// : labels 
-//  ̶T̶O̶D̶O̶: label with names  
-//  TODO: make hash
+        DEB("[%s / %d]", cmd, cmd_size);
 
         if(strincmp(cmd, "jmp", cmd_size) == 0)
         {  // dealing with labels
-            DEB("joined jmp with command : %s\n", cmd);
-            int jmp_to = 0;
-            
-            if(colon != ':') // jmp to not label  + to named label
-            {
-                if(sscanf(stringed_buffer[i] + cmd_size, " %d", &jmp_to))
-                {
-                    DEB("[%s]colon != : %d\n", cmd, jmp_to);
-                    machine_code_buffer[ip++] = CMD_JMP;
-                    machine_code_buffer[ip++] = jmp_to;
-                }
-                else
-                {
-                    char labels_name[20] = ""; //ig 
-                    int labels_size = 0;
-                    sscanf(stringed_buffer[i] + cmd_size + 1, " %[^:]%n", labels_name, &labels_size);
-                    DEB("scanned LABEL  = %s [%d]\n", labels_name, labels_size);
-                    machine_code_buffer[ip++] = CMD_JMP;
-                    DEB("m_c_b : JMP [ip = %d]\n", ip - 1);
-                    for(int j = 0; j < LABEL_MAX; j++)
-                    {
-                        DEB("comparing %s, %s, %d\n", labels[j].label_name, labels_name, labels_size);
-                        if(strincmp(labels[j].label_name, labels_name, labels_size) == 0)
-                        {
-                            DEB("found in jmp%d\n", j);
-                            machine_code_buffer[ip++] = labels[j].label_to;
-                            DEB("ip = %d", ip);
-                            break;
-                        }
-                    }
-                }
-            }
-            else 
-            {
-                sscanf(stringed_buffer[i] + cmd_size, " :%d", &jmp_to);
-                DEB("<colon ==  :> %d\n", jmp_to);
-                machine_code_buffer[ip++] = CMD_JMP;
-                machine_code_buffer[ip++] = labels[jmp_to].label_to;
-                DEB("machine_code_buffer[%d] = labels[%d].label_to = %d\n", ip - 1, jmp_to, labels[jmp_to].label_to);
-            }
+            machine_code_buffer[ip++] = CMD_JMP;
+            machine_code_buffer[ip++] = jmp_to(labels, stringed_buffer[i] + cmd_size + 1);
         }
-        else if(char *colonn = strchr(stringed_buffer[i], ':'))  // ну это хуйня блять сканфная не работает если строчка ":цифра"    
+        else if(strchr(stringed_buffer[i], ':'))  // ну это хуйня блять сканфная не работает если строчка ":цифра"    
         { // adding labels; 
-            DEB("ebanaya metka : ");
-            int label_number = 0;
-            if(sscanf(colonn, ":%d", &label_number) == 1)
-            {
-                DEB("label_number = %d. = %d ; \n",label_number, ip);
-                labels[label_number].label_to = ip;
-            }
-            else 
-            {
-                char *labels_name = cmd;
-                DEB("label name : %s\n", labels_name);
-                for(int k = 0; k < LABEL_MAX; k++)
-                {
-                    if(labels[k].label_name == NULL && labels[k].label_to == -1)
-                    {
-                        labels[k].label_to = ip;
-                        labels[k].label_name = labels_name;
-                        DEB("found free label for \"%s\"on %d\n",labels_name, k); // хуйня нерабочая
-                        DEB("labels[i].label_name: %s\n", labels[k].label_name);
-                        break;
-                    }
-                }
-            }
+            AddLabel(labels, stringed_buffer[i], ip);
         }
         else if(strincmp(cmd, "push", cmd_size) == 0)
         {
@@ -300,7 +395,6 @@ int main() // TODO: if bebra.txt has empty string, the result of the program is 
     RedundantSpaces(buffer, symbols_count); 
     
     int strings_count = CountStrings(buffer);
-
     
     char **string_buffer = GetString(buffer, strings_count);
 
@@ -310,8 +404,8 @@ int main() // TODO: if bebra.txt has empty string, the result of the program is 
 
     for(int i = 0; i < LABEL_MAX; i++)
     {
-        labels[i].label_to   = -1;
-        labels[i].label_name = NULL;
+        labels[i].label_to   = LABEL_TO_UNTOUCHED;
+        labels[i].label_hash = LABEL_FREE;
     }
 
     int *opcode_buffer = Assemble(string_buffer, labels, strings_count, &tokens);
@@ -322,9 +416,10 @@ int main() // TODO: if bebra.txt has empty string, the result of the program is 
         printf("opcode buffer is NULL\n");  
         return 0;
     }
+    int *opcode_buffer1 = Assemble(string_buffer, labels, strings_count, &tokens);
 
 
-    WriteBinaryFile(opcode_buffer, tokens); // check return value
+    WriteBinaryFile(opcode_buffer1, tokens); // check return value
 
     DEB("tokens :%d\n", tokens);
    
@@ -333,5 +428,7 @@ int main() // TODO: if bebra.txt has empty string, the result of the program is 
     free(buffer);
     free(string_buffer);
     free(opcode_buffer);
+    free(opcode_buffer1);
+
     return 0;
 }
