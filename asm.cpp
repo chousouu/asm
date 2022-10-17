@@ -251,7 +251,7 @@ int jmp_to(struct Label *labels, char *str)
     }
 }
 
-int ChooseArgs(char *opcode, char *str)
+int ChooseArgs(char *opcode_tmp, char *str)
 {
     int push_value = 0;
     char reg = '!';    
@@ -292,23 +292,20 @@ int ChooseArgs(char *opcode, char *str)
     {                                                                                               
         opcode_tmp[_KONST] = 1;                                                                     
     }
-    if(reg != '!')
+    else 
     {
-        opcode_tmp[_REG] = reg - 'a' + 1;
+        return INCORRECT_INPUT;
     }
-    if(bracket != '!')
-    {
-        opcode_tmp[_RAM]   = 1;                                                                     
-    }
+
+    return push_value; 
 }
 
-
-#define DEF_CMD(name, num, arg, code)                                                                   \
-else if(strincmp(cmd, #name, cmd_size) == 0)                                                            \
-{                                                                                                       \
-    if(arg > 0)                                                                                    \
-    {                                                                                                   \
-        if(arg == CMD_USES_LABEL)                                                                                       \
+#define DEF_CMD(name, num, arg, code)                                                                       \
+else if(strincmp(cmd, #name, cmd_size) == 0)                                                                \
+{                                                                                                           \
+    if(arg > 0)                                                                                             \
+    {                                                                                                       \
+        if(arg == CMD_USES_LABEL)                                                                           \
         {                                                                                                   \
                 opcode_buffer[ip++] = CMD_##name;                                                           \
                 int jmp_ip = jmp_to(labels, stringed_buffer[i] + cmd_size + 1);                             \
@@ -316,24 +313,27 @@ else if(strincmp(cmd, #name, cmd_size) == 0)                                    
                 {                                                                                           \
                     assembler->jmp_after[assembler->jmp_after_count++] = i;                                 \
                     assembler->jmp_after[assembler->jmp_after_count++] = ip;                                \
+                    assembler->jmp_after[assembler->jmp_after_count++] = cmd_size + 1;                      \
                 }                                                                                           \
                 opcode_buffer[ip++] = jmp_ip;                                                               \
+                prev_two_arg = 1;                                                                           \
         }                                                                                                   \
         else                                                                                                \
         {                                                                                                   \
             char *opcode_tmp = (char *)(opcode_buffer + ip);                                                \
             opcode_tmp[_CMD] = CMD_##name;                                                                  \
             ip++;                                                                                           \
-            ChooseArgs(opcode_tmp, stringed_buffer[i] + cmd_size);\
-            opcode_buffer[ip++] = push_value;                                                               \
-            prev_two_arg = 1;                                                                                  \
+            int argument = ChooseArgs(opcode_tmp, stringed_buffer[i] + cmd_size);                           \
+            if(argument == INCORRECT_INPUT) {free(opcode_buffer); return NULL;}                             \
+            opcode_buffer[ip++] = argument;                                                                 \
+            prev_two_arg = 1;                                                                               \
         }                                                                                                   \
-    }                                                                                                   \
-    else                                                                                                \
-    {                                                                                                   \
-        opcode_buffer[ip++] = CMD_##name;                                                               \
-        prev_two_arg = 0;                                                                                  \
-    }                                                                                                   \
+    }                                                                                                       \
+    else                                                                                                    \
+    {                                                                                                       \
+        opcode_buffer[ip++] = CMD_##name;                                                                   \
+        prev_two_arg = 0;                                                                                   \
+    }                                                                                                       \
 }                                   
 
 
@@ -343,7 +343,7 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
     int *opcode_buffer = (int*)calloc(3 * assembler->strings_count, sizeof(int));
 // consider resizing array
     int ip = 0;
-    int prev_two_arg = 0; //TODO: change name since it will be used for cmds with 2 args, not only push
+    int prev_two_arg = 0;
 
     for(int i = 0; i < assembler->strings_count; i++)
     {
@@ -381,9 +381,9 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
         #undef DEF_CMD
 
     for(int i = 0; i < assembler->jmp_after_count; i++)
-    {// even elem = i, odd elem = ip, 
-        opcode_buffer[assembler->jmp_after[i + 1]] = jmp_to(labels, stringed_buffer[assembler->jmp_after[i]] + 4);
-        i++;
+    {//i, ip, cmd_size + 1 
+        opcode_buffer[assembler->jmp_after[i + 1]] = jmp_to(labels, stringed_buffer[assembler->jmp_after[i]] + assembler->jmp_after[i + 2]);
+        i += 2;
     }
 
     assembler->tokens = ip;
@@ -402,7 +402,7 @@ int main()
         .opcode_buffer = NULL,
         .strings_count = CountStrings(buffer),
         .tokens = 0,
-        .jmp_after = (int*)calloc(LABEL_MAX * 2, sizeof(int)),
+        .jmp_after = (int*)calloc(LABEL_MAX * 3, sizeof(int)),
         .jmp_after_count = 0,
     };
 
@@ -427,7 +427,7 @@ int main()
     if(assembler.opcode_buffer == NULL)
     {
         printf("opcode buffer is NULL\n");  
-        // все равно есть мемори лик внутри ассембла, там тоже добавлять свой фри? free(opcode == NULL) makes no sense 
+
         free(buffer);
         free(string_buffer);
         free(assembler.jmp_after);
@@ -444,6 +444,8 @@ int main()
     free(string_buffer);
     free(assembler.opcode_buffer);
     free(assembler.jmp_after);
+
     printf("done\n");
+    
     return 0;
 }
