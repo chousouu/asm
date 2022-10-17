@@ -37,7 +37,9 @@ int strincmp(const char *str1, const char *str2, int n)
     }
     for(int i = 0; i < n; i++)
     {
-        // make variable for str[i]
+        char s1 = str1[i];
+        char s2 = str2[i];
+
         // check logic
 
         // try:
@@ -46,19 +48,19 @@ int strincmp(const char *str1, const char *str2, int n)
             // ' pop'
             // ' pmj'
 
-        if(str1[i] == ' ' || str2[i] == ' ')
+        if(s1 == ' ' || s2 == ' ')
         {
             continue;
         }
-        if(tolower(str1[i]) != tolower(str2[i]))
+        if(tolower(s1) != tolower(s2))
         {
-           return str1[i] - str2[i];
+           return s1 - s2;
         }
-        if(str1[i] == '\0' && str2[i] != '\0') 
+        if(s1 == '\0' && s2 != '\0') 
         {
             return -1;
         }
-        if (str2[i] == '\0' && str1[i] != '\0')
+        if (s2 == '\0' && s1 != '\0')
         {
             return 1;
         }
@@ -101,6 +103,11 @@ char *ReadToBuffer(const char *filename, int size)
 
     char *buffer = (char *)calloc(size + 1, sizeof(char));
 
+    if(buffer == NULL)
+    {
+        printf("buffer = NULL (READTOBUFFER)\n");
+    }
+
     fread(buffer, sizeof(char), size, fp);
     buffer[size] = '\0';
 
@@ -140,7 +147,8 @@ void RedundantSpaces(char *buffer, int size)
             }
         }
     }
-    buffer[k] = '\0';    
+    buffer[k] = '\0';   
+
 }
 
 int CountStrings(char *buffer)
@@ -250,8 +258,20 @@ int jmp_to(struct Label *labels, char *str)
     }
 }
 
-int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assembler)
+
+#define DEF_CMD(name, num, arg, code) \
+else if(strincmp(cmd, #name, cmd_size) == 0)
 {
+    if(arg > 0)
+    {
+        
+    }
+}
+
+
+
+int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assembler)
+{//TODO strincmp counts ("dup", "dup", 3) == ("d", "dup", 1)
     int *opcode_buffer = (int*)calloc(3 * assembler->strings_count, sizeof(int));
 // consider resizing array
     int ip = 0;
@@ -284,9 +304,48 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
         else if(strincmp(cmd, "push", cmd_size) == 0)
         {
             int push_value = 0;
-            sscanf(stringed_buffer[i] + cmd_size, " %d", &push_value);
+            char reg = '!';
+            char bracket = '!';
+            char *opcode_tmp = (char *)(opcode_buffer + ip);
+            opcode_tmp[_CMD] = CMD_PUSH;
+            ip++;
+            if((sscanf(stringed_buffer[i] + cmd_size, " [r%cx + %d %c", &reg, &push_value, &bracket)) == 3)
+            {
+                IF_NOT_BRACKET;
 
-            opcode_buffer[ip++] = CMD_PUSH;
+                opcode_tmp[_RAM]   = 1;
+                opcode_tmp[_REG]   = reg - 'a' + 1;
+                opcode_tmp[_KONST] = 1;
+            }
+            else if((sscanf(stringed_buffer[i] + cmd_size, " [%d %c", &push_value, &bracket)) == 2)
+            {
+                IF_NOT_BRACKET;
+
+                opcode_tmp[_RAM]   = 1;
+                opcode_tmp[_KONST] = 1;
+                
+            }
+            else if((sscanf(stringed_buffer[i] + cmd_size, " [r%cx %c", &reg, &bracket)) == 2)
+            {
+                IF_NOT_BRACKET;
+
+                opcode_tmp[_RAM]   = 1;
+                opcode_tmp[_REG] = reg - 'a' + 1;
+            }
+            else if(sscanf(stringed_buffer[i] + cmd_size, " r%cx + %d", &reg, &push_value) == 2)
+            {
+                opcode_tmp[_REG] = reg - 'a' + 1;
+                opcode_tmp[_KONST] = 1;
+            }
+            else if(sscanf(stringed_buffer[i] + cmd_size, " r%cx", &reg) == 1)
+            {
+                opcode_tmp[_REG] = reg - 'a' + 1;
+            }
+            else if(sscanf(stringed_buffer[i] + cmd_size, " %d", &push_value) == 1)
+            {
+                opcode_tmp[_KONST] = 1;
+            }
+
             opcode_buffer[ip++] = push_value; 
             prev_push = 1;
         }
@@ -330,6 +389,8 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
 
 
 
+
+
 int main() 
 {
     int symbols_count = CountSymbols("bebra.txt");
@@ -344,6 +405,12 @@ int main()
         .jmp_after = (int*)calloc(LABEL_MAX * 2, sizeof(int)),
         .jmp_after_count = 0,
     };
+
+    if(assembler.jmp_after == NULL)
+    {
+        printf("assembler.jmp_after == NULL\n");
+        return 0;
+    }
     
     struct Label labels[LABEL_MAX] = {};
 
@@ -357,10 +424,13 @@ int main()
     
     assembler.opcode_buffer = Assemble(string_buffer, labels, &assembler);
 
-    
     if(assembler.opcode_buffer == NULL)
     {
         printf("opcode buffer is NULL\n");  
+        // все равно есть мемори лик внутри ассембла, там тоже добавлять свой фри? free(opcode == NULL) makes no sense 
+        free(buffer);
+        free(string_buffer);
+        free(assembler.jmp_after);
         return 0;
     }
 
