@@ -251,6 +251,7 @@ int jmp_to(struct Label *labels, char *str)
 
         if(index == -1)
         {
+
             return LABEL_TO_UNTOUCHED; // -1 is label_to value by default 
         }
 
@@ -260,13 +261,61 @@ int jmp_to(struct Label *labels, char *str)
 
 
 #define DEF_CMD(name, num, arg, code) \
-else if(strincmp(cmd, #name, cmd_size) == 0)
-{
-    if(arg > 0)
-    {
-        
-    }
-}
+else if(strincmp(cmd, #name, cmd_size) == 0)                            \
+{                                                                       \
+    if(arg > 0)                                                         \
+    {                                                                   \
+        int push_value = 0;                                             \
+        char reg = '!';                                                 \
+        char bracket = '!';                                             \
+        char *opcode_tmp = (char *)(opcode_buffer + ip);                \
+        opcode_tmp[_CMD] = CMD_##name;                                  \
+        ip++;                                                           \
+        if((sscanf(stringed_buffer[i] + cmd_size, " [r%cx + %d %c", &reg, &push_value, &bracket)) == 3) \
+        {                                                                                               \
+            IF_NOT_BRACKET;                                                                             \
+                                                                                                        \
+            opcode_tmp[_RAM]   = 1;                                                                     \
+            opcode_tmp[_REG]   = reg - 'a' + 1;                                                         \
+            opcode_tmp[_KONST] = 1;                                                                     \
+        }                                                                                               \
+        else if((sscanf(stringed_buffer[i] + cmd_size, " [%d %c", &push_value, &bracket)) == 2)         \
+        {                                                                                               \
+            IF_NOT_BRACKET;                                                                             \
+                                                                                                        \
+            opcode_tmp[_RAM]   = 1;                                                                     \
+            opcode_tmp[_KONST] = 1;                                                                     \
+        }                                                                                               \
+        else if((sscanf(stringed_buffer[i] + cmd_size, " [r%cx %c", &reg, &bracket)) == 2)              \
+        {                                                                                               \
+            IF_NOT_BRACKET;                                                                             \
+                                                                                                        \
+            opcode_tmp[_RAM]   = 1;                                                                     \
+            opcode_tmp[_REG] = reg - 'a' + 1;                                                           \
+        }                                                                                               \
+        else if(sscanf(stringed_buffer[i] + cmd_size, " r%cx + %d", &reg, &push_value) == 2)            \
+        {                                                                                               \
+            opcode_tmp[_REG] = reg - 'a' + 1;                                                           \
+            opcode_tmp[_KONST] = 1;                                                                     \
+        }                                                                                               \
+        else if(sscanf(stringed_buffer[i] + cmd_size, " r%cx", &reg) == 1)                              \
+        {                                                                                               \
+            opcode_tmp[_REG] = reg - 'a' + 1;                                                           \
+        }                                                                                               \
+        else if(sscanf(stringed_buffer[i] + cmd_size, " %d", &push_value) == 1)                         \
+        {                                                                                               \
+            opcode_tmp[_KONST] = 1;                                                                     \
+        }                                                                                               \
+                                                                                                        \
+        opcode_buffer[ip++] = push_value;                                                               \
+        prev_push = 1;                                                                                  \
+    }                                                                                                   \
+    else                                                                                                \
+    {                                                                                                   \
+        opcode_buffer[ip++] = CMD_##name;                                                               \
+        prev_push = 0;                                                                                  \
+    }                                                                                                   \
+}                                   
 
 
 
@@ -301,64 +350,11 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
         { 
             AddLabel(labels, stringed_buffer[i], ip);
         }
-        else if(strincmp(cmd, "push", cmd_size) == 0)
-        {
-            int push_value = 0;
-            char reg = '!';
-            char bracket = '!';
-            char *opcode_tmp = (char *)(opcode_buffer + ip);
-            opcode_tmp[_CMD] = CMD_PUSH;
-            ip++;
-            if((sscanf(stringed_buffer[i] + cmd_size, " [r%cx + %d %c", &reg, &push_value, &bracket)) == 3)
-            {
-                IF_NOT_BRACKET;
-
-                opcode_tmp[_RAM]   = 1;
-                opcode_tmp[_REG]   = reg - 'a' + 1;
-                opcode_tmp[_KONST] = 1;
-            }
-            else if((sscanf(stringed_buffer[i] + cmd_size, " [%d %c", &push_value, &bracket)) == 2)
-            {
-                IF_NOT_BRACKET;
-
-                opcode_tmp[_RAM]   = 1;
-                opcode_tmp[_KONST] = 1;
-                
-            }
-            else if((sscanf(stringed_buffer[i] + cmd_size, " [r%cx %c", &reg, &bracket)) == 2)
-            {
-                IF_NOT_BRACKET;
-
-                opcode_tmp[_RAM]   = 1;
-                opcode_tmp[_REG] = reg - 'a' + 1;
-            }
-            else if(sscanf(stringed_buffer[i] + cmd_size, " r%cx + %d", &reg, &push_value) == 2)
-            {
-                opcode_tmp[_REG] = reg - 'a' + 1;
-                opcode_tmp[_KONST] = 1;
-            }
-            else if(sscanf(stringed_buffer[i] + cmd_size, " r%cx", &reg) == 1)
-            {
-                opcode_tmp[_REG] = reg - 'a' + 1;
-            }
-            else if(sscanf(stringed_buffer[i] + cmd_size, " %d", &push_value) == 1)
-            {
-                opcode_tmp[_KONST] = 1;
-            }
-
-            opcode_buffer[ip++] = push_value; 
-            prev_push = 1;
-        }
-        else if(strincmp(cmd, "pop", cmd_size) == 0)
-        {
-            opcode_buffer[ip++] = CMD_POP;
-            prev_push = 0;
-        }
         else if(strincmp(cmd, "dup", cmd_size) == 0)
         {
             if(prev_push == 1)
             {
-                opcode_buffer[ip]     = CMD_PUSH;
+                opcode_buffer[ip]     = opcode_buffer[ip - 2];
                 opcode_buffer[ip + 1] = opcode_buffer[ip - 1];
                 ip += 2; 
             }
@@ -369,12 +365,10 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
             }
             prev_push = 0;
         } 
-        ELSE_IF_CMP(ADD)
-        ELSE_IF_CMP(MUL)
-        ELSE_IF_CMP(DIV)
-        ELSE_IF_CMP(OUT)
-        ELSE_IF_CMP(HALT)
+        #include "commands.h"
     }
+
+        #undef DEF_CMD
 
     for(int i = 0; i < assembler->jmp_after_count; i++)
     {// even elem = i, odd elem = ip, 
@@ -386,7 +380,6 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
 
     return opcode_buffer;
 }
-
 
 
 
@@ -444,6 +437,6 @@ int main()
     free(string_buffer);
     free(assembler.opcode_buffer);
     free(assembler.jmp_after);
-
+    printf("done\n");
     return 0;
 }
