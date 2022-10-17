@@ -1,8 +1,6 @@
 #include "asm.h"
 #include "enum.h"
 
-// TODO: split into files !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 bool WriteBinaryFile(int *opcode_buffer, int tokens)
 {
     FILE *fp = fopen("asm.bin", "wb");
@@ -236,7 +234,7 @@ int AddLabel(struct Label *labels, char *str, int ip)
 
 int jmp_to(struct Label *labels, char *str)
 {
-    if(strchr(str, ':') == NULL) // 1
+    if(strchr(str, ':') == NULL) 
     {
         int jmp_ip = -1;
         sscanf(str, " %d", &jmp_ip);
@@ -260,17 +258,28 @@ int jmp_to(struct Label *labels, char *str)
 }
 
 
-#define DEF_CMD(name, num, arg, code) \
-else if(strincmp(cmd, #name, cmd_size) == 0)                            \
-{                                                                       \
-    if(arg > 0)                                                         \
-    {                                                                   \
-        int push_value = 0;                                             \
-        char reg = '!';                                                 \
-        char bracket = '!';                                             \
-        char *opcode_tmp = (char *)(opcode_buffer + ip);                \
-        opcode_tmp[_CMD] = CMD_##name;                                  \
-        ip++;                                                           \
+#define DEF_CMD(name, num, arg, code)                                                                   \
+else if(strincmp(cmd, #name, cmd_size) == 0)                                                            \
+{                                                                                                       \
+    if(arg == 12)                                                                                       \
+    {                                                                                                   \
+            opcode_buffer[ip++] = CMD_##name;                                                           \
+            int jmp_ip = jmp_to(labels, stringed_buffer[i] + cmd_size + 1);                             \
+            if(jmp_ip == LABEL_TO_UNTOUCHED)                                                            \
+            {                                                                                           \
+                assembler->jmp_after[assembler->jmp_after_count++] = i;                                 \
+                assembler->jmp_after[assembler->jmp_after_count++] = ip;                                \
+            }                                                                                           \
+            opcode_buffer[ip++] = jmp_ip;                                                               \
+    }                                                                                                   \
+    else if(arg > 0)                                                                                    \
+    {                                                                                                   \
+        int push_value = 0;                                                                             \
+        char reg = '!';                                                                                 \
+        char bracket = '!';                                                                             \
+        char *opcode_tmp = (char *)(opcode_buffer + ip);                                                \
+        opcode_tmp[_CMD] = CMD_##name;                                                                  \
+        ip++;                                                                                           \
         if((sscanf(stringed_buffer[i] + cmd_size, " [r%cx + %d %c", &reg, &push_value, &bracket)) == 3) \
         {                                                                                               \
             IF_NOT_BRACKET;                                                                             \
@@ -308,12 +317,12 @@ else if(strincmp(cmd, #name, cmd_size) == 0)                            \
         }                                                                                               \
                                                                                                         \
         opcode_buffer[ip++] = push_value;                                                               \
-        prev_push = 1;                                                                                  \
+        prev_two_arg = 1;                                                                                  \
     }                                                                                                   \
     else                                                                                                \
     {                                                                                                   \
         opcode_buffer[ip++] = CMD_##name;                                                               \
-        prev_push = 0;                                                                                  \
+        prev_two_arg = 0;                                                                                  \
     }                                                                                                   \
 }                                   
 
@@ -324,7 +333,7 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
     int *opcode_buffer = (int*)calloc(3 * assembler->strings_count, sizeof(int));
 // consider resizing array
     int ip = 0;
-    int prev_push = 0; //TODO: change name since it will be used for cmds with 2 args, not only push
+    int prev_two_arg = 0; //TODO: change name since it will be used for cmds with 2 args, not only push
 
     for(int i = 0; i < assembler->strings_count; i++)
     {
@@ -335,24 +344,9 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
 
         sscanf(stringed_buffer[i], "%[^:-123456789 ]%n", cmd, &cmd_size);
 
-        if(strincmp(cmd, "jmp", cmd_size) == 0)
+        if(strincmp(cmd, "dup", cmd_size) == 0)
         {
-            opcode_buffer[ip++] = CMD_JMP;
-            int jmp_ip = jmp_to(labels, stringed_buffer[i] + cmd_size + 1);
-            if(jmp_ip == LABEL_TO_UNTOUCHED)
-            {
-                assembler->jmp_after[assembler->jmp_after_count++] = i;
-                assembler->jmp_after[assembler->jmp_after_count++] = ip;
-            }
-            opcode_buffer[ip++] = jmp_ip;
-        }
-        else if(strchr(stringed_buffer[i], ':'))     
-        { 
-            AddLabel(labels, stringed_buffer[i], ip);
-        }
-        else if(strincmp(cmd, "dup", cmd_size) == 0)
-        {
-            if(prev_push == 1)
+            if(prev_two_arg == 1)
             {
                 opcode_buffer[ip]     = opcode_buffer[ip - 2];
                 opcode_buffer[ip + 1] = opcode_buffer[ip - 1];
@@ -363,9 +357,15 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
                 opcode_buffer[ip] = opcode_buffer[ip - 1];
                 ip++;  
             }
-            prev_push = 0;
-        } 
+            prev_two_arg = 0;
+        }
+
         #include "commands.h"
+        
+        else if(strchr(stringed_buffer[i], ':'))     
+        { 
+            AddLabel(labels, stringed_buffer[i], ip);
+        }
     }
 
         #undef DEF_CMD
@@ -380,9 +380,6 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
 
     return opcode_buffer;
 }
-
-
-
 
 int main() 
 {
