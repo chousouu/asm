@@ -29,27 +29,17 @@ int CountSymbols(const char *filename)
 
 int strincmp(const char *str1, const char *str2, int n)
 {
-    if (n == 0)
+    if(n == 0)
     {
         return -1;
     }
-    for(int i = 0; i < n; i++)
+    int i = 0, j = 0;
+    
+    while(i < n && j < n)
     {
         char s1 = str1[i];
-        char s2 = str2[i];
+        char s2 = str2[j];
 
-        // check logic
-
-        // try:
-
-            // 'hsup'
-            // ' pop'
-            // ' pmj'
-
-        if(s1 == ' ' || s2 == ' ')
-        {
-            continue;
-        }
         if(tolower(s1) != tolower(s2))
         {
            return s1 - s2;
@@ -62,6 +52,8 @@ int strincmp(const char *str1, const char *str2, int n)
         {
             return 1;
         }
+        i++;
+        j++;
     }
     return 0;
 }
