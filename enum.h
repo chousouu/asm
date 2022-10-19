@@ -13,7 +13,13 @@ enum CMD
     #undef DEF_CMD
 };
 
-
+enum CMD_BYTES 
+{
+    _CMD   = 0,
+    _RAM   = 1,
+    _REG   = 2,
+    _KONST = 3,
+};
     // CMD_PUSH  = 1,
     // CMD_POP   = 2,
     // CMD_ADD   = 3,

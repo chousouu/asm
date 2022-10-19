@@ -1,28 +1,56 @@
-#include "asm.h"
+#include "cpu.h"
+#include "stack.h"
+#include "enum.h"
 
-int main() // TODO: if bebra.txt has odd empty stroki, the result of the program is unexpected
+int main()
 {
-    char *buffer = ReadToBuffer("bebra.txt");
-    OddSpaceRemoveArray(buffer);
-    int strings_count = CountString(buffer);
-    char **string_buffer = GetString(buffer, strings_count);
-
-    for(int i = 0; i < strings_count; i++)
+    struct CPU cpu = 
     {
-        DEB("%s\n", string_buffer[i]);
-    }
-    int machine_symbols_count = 0;
+        .machine_inst = NULL,
+        .tokens = 0,
+        .reg = {},
+        .RAM = {},
+    };
 
-    struct Label labels[LABEL_AMOUNT] = {};
+    Stack stk1 = {};
+    StackCtor_(stk1, 10);
+    
+    cpu.tokens = CountInts("asm.bin");
 
-    for(int i = 0; i < LABEL_AMOUNT; i++)
+    DEB("%d token\n", cpu.tokens);
+    cpu.machine_inst = ReadToBuffer("asm.bin", cpu.tokens);
+
+    if(cpu.machine_inst == NULL)
     {
-        labels[i].label_to   = -1;
-        labels[i].label_name = NULL;
+        printf("opcode is NULL");
+        return 0;
     }
 
+    if(CheckSignature(cpu.machine_inst))
+    {
+        Run(&stk1, &cpu);
+        
+        DEB("stackprint: \n");
+        DEBUGStackPrint(&stk1);
 
-    int *machined_buffer = Assembly(string_buffer, strings_count, &machine_symbols_count);
+        DEB("RAM :\n");
+        for(int i = 0; i < RAM_MAX; i++)
+            DEB("%d ", cpu.RAM[i]);
+        
+        DEB("REG:\n");
+        for(int i = 1; i < REG_COUNT; i++)
+            DEB("%d ", cpu.reg[i]);
+        
+        Listing(&cpu);
+    }
+    else
+    {
+        printf("Signature did not match\n");
+    }
 
-    WriteBinaryFile(machined_buffer, machine_symbols_count);
+    free(cpu.machine_inst);
+    StackDtor(&stk1);
+    printf("done\n");
+
+    return 0;
 }

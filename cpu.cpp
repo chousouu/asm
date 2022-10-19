@@ -2,208 +2,199 @@
 #include "enum.h"
 #include "cpu.h"
 
+#define DEF_CMD(name, num, arg, code) \
+    if (cmd_id[0] == num)                \
+        {cmd_stringed = #name; argcount = arg;}
+
+
+void Listing(struct CPU *cpu)
+{
+    FILE *fp = fopen("Lcpu.txt", "w");
+    const char *cmd_stringed = NULL;
+
+    if(fp == NULL)
+    {
+        return;
+    }
+    int counter = 0;
+    int argcount = 0;
+    fprintf(fp, " N   CMD  RAM REG CONST CMD   ARG\n");
+    for(int ip = 1; ip < cpu->tokens; ip++, counter++)
+    {
+        int reg_n_konst = 0;
+        char *cmd_id = ((char *)(cpu->machine_inst + ip));
+        int FOR_RAM = cmd_id[1];
+        int FOR_REG = cmd_id[2];
+        int FOR_KONST = cmd_id[3];
+
+        #include "commands.h"
+
+        fprintf(fp, "%04d %3d %3d %3d %3d \t%s ", counter, cmd_id[0], FOR_RAM, FOR_REG, FOR_KONST, cmd_stringed);
+        if(argcount > 0)
+        {
+            ip++;
+            if(FOR_RAM) fprintf(fp, "[");
+            if(FOR_REG) {fprintf(fp, "r%cx", FOR_REG + 'a' - 1); reg_n_konst = 1;}
+            if(FOR_KONST == 1 && reg_n_konst == 1) {fprintf(fp, " + %d", cpu->machine_inst[ip]);} 
+            else if(FOR_KONST == 1 && reg_n_konst == 0) {fprintf(fp, "  %d", cpu->machine_inst[ip]);}
+            if(FOR_RAM) fprintf(fp, "]");
+        }
+        fprintf(fp, "\n");
+    }
+    fclose(fp);
+}
+#undef DEF_CMD
+
+
+void DEBUGStackPrint(struct Stack *stack)
+{
+    int i = 0;
+    int print_to = stack->capacity;
+    #ifdef CANARY_PROT
+    i--;
+    print_to++;
+    #endif// CANARY_PROT
+    for(; i < print_to; i++)
+    {
+        char        in_stack    =   ' ';
+        const char *isPOISONED  = "(POISON)";
+        const char *notPOISONED = " "; 
+        const char *isCANARY    = "(CANARY)";
+        const char *situation   = isPOISONED;
+
+        if(*(stack->data + i) == DATA_LEFT_CANARY || *(stack->data + i) == DATA_RIGHT_CANARY)
+        {
+            in_stack = '#';
+            situation = isCANARY;
+        }
+        else if(stack->data[i] != POISON)
+        {
+            in_stack = '*';
+            situation = notPOISONED;
+        }
+        printf("\t\t%c[%d] = %d%s\n", in_stack, i, *(stack->data + i), situation);
+    }    
+
+}
+
 int CountInts(const char *filename)
 {
     struct stat buff = {};
     stat(filename, &buff);
 
-    return (buff.st_size / sizeof(int));
+    return buff.st_size / sizeof(int);
 }
 
-int *ReadToBuffer(const char *filename)
-{
-    int size = CountInts(filename);
-    FILE *fp = fopen(filename, "rb");
+int *ReadToBuffer(const char *filename, int size)
+{    
+    FILE *fp = fopen(filename, "r");
+
+    if(fp == NULL)
+    {
+        printf("Could not open \"%s\"\n", filename);
+        return NULL;
+    }
 
     int *buffer = (int *)calloc(size, sizeof(int));
 
-    int PutZero = fread(buffer, sizeof(int), size, fp);
-    buffer[PutZero] = '\0';
+    if(buffer == NULL)
+    {
+        printf("buffer = NULL (READTOBUFFER)\n");
+        return buffer;
+    }
 
-    for (int i = 0; i < size; i++)
-        DEB("%d ", buffer[i]);
-    DEB("\n");
+    fread(buffer, sizeof(int), size, fp);
+    
+    fclose(fp);
 
     return buffer;
 }
 
-bool CheckSignature(int *machine_code_buffer)
+bool CheckSignature(int *machine_inst)
 { // sign : LILY
-    if (
-        ((char *)machine_code_buffer)[0] == 'L' &&
-        ((char *)machine_code_buffer)[1] == 'I' &&
-        ((char *)machine_code_buffer)[2] == 'L' &&
-        ((char *)machine_code_buffer)[3] == 'Y') // TODO: check as int or memcmp
-    {
-        return 1;
-    }
-    return 0;
+    return machine_inst[0] == LILY_REVERTED;
 }
 
-void Run(struct Stack *stk1, int *machine_code_buffer, int machine_cmds_count)
+int GetArgument(struct CPU *cpu, int *ip)
 {
-    DEB("machine code: [max = %d]", machine_cmds_count);
-    for (int i = 0; i < machine_cmds_count; i++)
-    {
-        DEB("%d ", machine_code_buffer[i]);
-    }
-    DEB("\n");
-
-    StackPrint(stk1);
+    int arg = 0;
+    char *opcode_tmp = (char *)(cpu->machine_inst + (*ip));
+    (*ip)++;
     
-    int err_code = 0;
-    int ip = 1;
-    while (machine_code_buffer[ip] != CMD_HALT && ip < machine_cmds_count)
+    if(opcode_tmp[_REG] != 0)
     {
-        DEB("before switch : %d (?%d) [ip = %d < %d]\n", machine_code_buffer[ip], CMD_HALT, ip, machine_cmds_count);
+        arg += cpu->reg[(int)(opcode_tmp[_REG])];
+    }
+    if(opcode_tmp[_KONST] == 1)
+    {
+        arg += cpu->machine_inst[*ip];
+    }
+    if(opcode_tmp[_RAM] == 1)
+    {
+        arg = cpu->RAM[arg];
+    }
 
-        switch (machine_code_buffer[ip])
-        {
+    return arg;
+}
+
+int PopIn(struct Stack *stk1, struct CPU *cpu, int *ip)
+{
+    char *opcode_tmp = (char *)(cpu->machine_inst + (*ip));
+    (*ip)++;
+
+    int err_code = 0; 
+
+    int pop_value = StackPop(stk1, &err_code);
+
+    if(err_code != 0)
+    {
+        return NOT_OK;
+    }
+
+    if(opcode_tmp[_REG] != 0 && opcode_tmp[_RAM] == 1)
+    {
+        cpu->RAM[(int)opcode_tmp[_REG]] = pop_value;
+    }
+    else if(opcode_tmp[_REG] != 0)
+    {
+        cpu->reg[(int)opcode_tmp[_REG]] = pop_value;
+    }
+    else if(opcode_tmp[_RAM] == 1)
+    {
+        cpu->RAM[cpu->machine_inst[*ip]] = pop_value;
+    }
+    else 
+    {
+        printf("Syntax error in pop [ip == (%d,%d)]\n", *ip - 1, *ip);
+    }
+
+    return OK;    
+}
+
 #define DEF_CMD(name, num, arg, code)  \
-    case CMD_##name:                   \
+        case CMD_##name:               \
         code;                          \
         ip++;                          \
-        DEB("ip = %d, done\n", ip); \
         break;
 
-#include "commands.h"
+void Run(struct Stack *stk1, struct CPU *cpu)
+{
+    int err_code = 0;
+    int ip = 1;
+    while (cpu->machine_inst[ip] != CMD_HALT)
+    {
+        switch(((char *)(cpu->machine_inst + ip))[0])
+        {
+
+        #include "commands.h"
+        
         default:
-            printf("Something went wrong!\n");
+            printf("Unknown opcode!\n");
             break;
         }
-#undef DEF_CMD
-        DEB("after switch : %d (?%d) [ip = %d]\n", machine_code_buffer[ip], (CMD_HALT), ip);
-        StackPrint(stk1);
+        
+        #undef DEF_CMD
     }
 
     DEB("End of run\n");
 }
-
-int main()
-{
-    Stack stk1 = {};
-    StackCtor_(stk1, 10);
-
-    // int test[] = {1234, 17, 1, 17, 2, 1, 2}; ////////////////////////////////
-
-    int *machine_code_buffer = ReadToBuffer("asm.bin");
-    if (CheckSignature(machine_code_buffer))
-    {
-        int cmds_counts = CountInts("asm.bin");
-        DEB("CMD_COUNTS = %d\n", cmds_counts);
-        Run(&stk1, machine_code_buffer, cmds_counts);
-        // Run(&stk1, test, 7);
-
-        StackPrint(&stk1);
-    }
-    else
-    {
-        printf("Signature did not match\n");
-    }
-
-    printf("done\n");
-}
-
-/*
-#include "stack.h"
-#include "enum.h"
-#include "cpu.h"
-
-int CountInts(const char *filename)
-{
-    struct stat buff = {};
-    stat(filename, &buff);
-
-    return (buff.st_size);
-}
-
-
-char *ReadToBuffer(const char *filename)
-{
-    int size = CountInts(filename);
-    FILE *fp = fopen(filename, "rb");
-
-    char *buffer = (char *)calloc(size, sizeof(char));
-
-    int PutZero = fread(buffer, sizeof(char), size, fp);
-    buffer[PutZero] = '\0';
-
-DEB("PUTZERO = %d\n", PutZero);
-    for(int i = 0; i < PutZero; i++)
-        DEB("%d ", buffer[i]);
-
-
-    return buffer;
-}
-
-bool CheckSignature(char *machine_code_buffer)
-{ // sign : LILY
-        if
-        (
-            ((char *)machine_code_buffer)[0] == 'L' &&
-            ((char *)machine_code_buffer)[1] == 'I' &&
-            ((char *)machine_code_buffer)[2] == 'L' &&
-            ((char *)machine_code_buffer)[3] == 'Y'
-        )
-        {
-            return 1;
-        }
-        return 0;
-}
-
-void Run(struct Stack *stk1, char *machine_code_buffer, int machine_cmds_count)
-{
-    DEB("machine code: [max = %d]\n", machine_cmds_count);
-    for(int i = 0; i < machine_cmds_count; i += 4)
-    {
-        DEB("%d ", *((int *)(machine_code_buffer + i)));
-    }
-    DEB("\n");
-
-    int err_code = 0;
-    int ip = 4;
-    while(machine_code_buffer[ip] != CMD_HALT && ip < machine_cmds_count)
-    {
-        DEB("b4 switch : %d (?%d) [ip = %d < %d]\n", machine_code_buffer[ip], CMD_HALT, ip, machine_cmds_count);
-
-        switch(machine_code_buffer[ip])
-        {
-            #define DEF_CMD(name, num, arg, code) \
-                    case CMD_##name:              \
-                    code;                         \
-                    ip += sizeof(int);                         \
-                    printf("ip = %d, done\n", ip); \
-                    break;
-
-            #include "commands.h"
-            default:
-                    printf("Something went wrong!\n");
-                    break;
-        }
-            #undef DEF_CMD
-        DEB("after switch : %d (?%d) [ip = %d]\n", machine_code_buffer[ip], CMD_HALT, ip);
-        StackPrint(stk1);
-    }
-
-    DEB("reached the end\n");
-}
-
-int main()
-{
-    Stack stk1;
-    StackCtor_(stk1, 12);
-
-    char *machine_code_buffer = ReadToBuffer("asm.bin");
-    if (CheckSignature(machine_code_buffer))
-    {
-        int cmds_counts = CountInts("asm.bin");
-        Run(&stk1, machine_code_buffer, cmds_counts);
-        // StackPrint(&stk1);
-    }
-    else
-    {
-        printf("Signature is not matched\n");
-    }
-
-}
-*/

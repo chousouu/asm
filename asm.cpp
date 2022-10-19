@@ -259,24 +259,24 @@ int ChooseArgs(char *opcode_tmp, char *str)
 
     if((sscanf(str, " [r%cx + %d %c", &reg, &push_value, &bracket)) == 3) 
     {                                                                                               
-        IF_NOT_BRACKET;                                                                             
+        IF_NOT_BRACKET;                                                                           
                                                                                                     
-        opcode_tmp[_RAM]   = 1;                                                                     
-        opcode_tmp[_REG]   = reg - 'a' + 1;                                                         
+        opcode_tmp[_RAM] = 1;                                                                     
+        opcode_tmp[_REG] = reg - 'a' + 1;                                                         
         opcode_tmp[_KONST] = 1;                                                                     
     }                                                                                               
     else if((sscanf(str, " [%d %c", &push_value, &bracket)) == 2)         
     {                                                                                               
         IF_NOT_BRACKET;                                                                             
                                                                                                     
-        opcode_tmp[_RAM]   = 1;                                                                     
+        opcode_tmp[_RAM] = 1;                                                                     
         opcode_tmp[_KONST] = 1;                                                                     
     }                                                                                               
     else if((sscanf(str, " [r%cx %c", &reg, &bracket)) == 2)              
     {                                                                                               
         IF_NOT_BRACKET;                                                                             
                                                                                                     
-        opcode_tmp[_RAM]   = 1;                                                                     
+        opcode_tmp[_RAM] = 1;                                                                     
         opcode_tmp[_REG] = reg - 'a' + 1;                                                           
     }                                                                                               
     else if(sscanf(str, " r%cx + %d", &reg, &push_value) == 2)            

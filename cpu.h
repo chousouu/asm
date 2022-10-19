@@ -1,21 +1,37 @@
 #ifndef CPU_H
 #define CPU_H
 
-#include <sys\stat.h>
+#include <sys/stat.h>
 
-bool CheckSignature(int *machine_code_buffer)                                            ;
-int *ReadToBuffer  (const char *filename)                                                ;
-int  CountInts     (const char *filename)                                                ;
-void Run           (struct Stack *stk1, int *machine_code_buffer, int machine_cmds_count);
+const int REG_COUNT = 5;
+const int RAM_MAX = 40;
+const int OK = 999;
+const int NOT_OK = -999;
+
+struct CPU
+{
+    int *machine_inst; 
+    int tokens;
+    int reg[REG_COUNT]; // [1] = rax [2] = rbx, rcx, rdx
+    int RAM[RAM_MAX];
+};
 
 
+const int LILY_REVERTED = 1498171724;
+int   GetArgument   (struct CPU *cpu, int *ip)            ;
 
-/*
-bool CheckSignature(char *machine_code_buffer)                                            ;
-char *ReadToBuffer (const char *filename)                                                ;
-int  CountInts     (const char *filename)                                                ;
-void Run           (struct Stack *stk1, char *machine_code_buffer, int machine_cmds_count);
-*/
+int PopIn(struct Stack *stk1, struct CPU *cpu, int *ip);
 
+bool  CheckSignature(int *machine_inst)                                            ;
+
+int  *ReadToBuffer  (const char *filename, int size)                                      ;
+
+int   CountInts     (const char *filename)                                                ;
+
+void Run(struct Stack *stk1, struct CPU *cpu);
+
+void DEBUGStackPrint(struct Stack *stack);
+
+void Listing(struct CPU *cpu);
 
 #endif
