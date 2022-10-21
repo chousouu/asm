@@ -1,16 +1,82 @@
-push 1 ;bebra
-push 2 ;bebra
-push -12
-:4
-push -14 ;bebra
-push 4444 ;bebra
-dup 
-jmp :4
-pop ;bebra 
-pop ;bebra
+IN ;a
+IN ;b
+IN ;c
+pop rcx
+pop rbx 
+pop rax 
+
+CALL DISC: 
+
+push 0
+push rdx
+
+JE DISC_ZERO:
+
+push 0
+push rdx
+
+JA DISC_POSITIVE:
+
+push 0
+push rdx
+
+JB DISC_NEG: 
+
+HALT
+
+
+DISC:
+push rbx
+push rbx
+mul 
+push 4
+push rax
+push rcx
+mul
+mul 
+sub 
+pop rdx
+RET 
+
+
+DISC_POSITIVE:; disc > 0
+push -1
+push rbx
+mul
+push rdx
+SQRT
 add
-:12 
-dup ;bebra
-mul  
-jmp :12
-halt ;bebra
+push 2
+push rax 
+mul
+div 
+PRROOT
+
+push -1
+push rbx
+mul
+push rdx
+SQRT
+sub
+push 2
+push rax 
+mul
+div 
+PRROOT
+HALT
+
+DISC_NEG:; discrim < 0
+HALT
+HALT
+
+DISC_ZERO:
+push -1
+push rbx
+mul 
+push 2
+push rax
+mul
+div
+PRROOT
+HALT
+
