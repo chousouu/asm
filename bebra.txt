@@ -5,6 +5,11 @@ pop rcx
 pop rbx 
 pop rax 
 
+push 0
+push rax
+
+JE LINEAR_EQ:
+
 CALL DISC: 
 
 push 0
@@ -21,6 +26,7 @@ push 0
 push rdx
 
 JB DISC_NEG: 
+
 
 HALT
 
@@ -49,7 +55,7 @@ div
 OUT
 HALT
 
-DISC_POSITIVE:; disc > 0
+DISC_POSITIVE:
 push -1
 push rbx
 mul
@@ -77,4 +83,37 @@ HALT
 
 DISC_NEG:; discrim < 0
 NOROOT
+HALT
+
+LINEAR_EQ:
+
+push 0
+push rbx
+JE B_ZERO:
+
+push 0 
+push rcx
+JE C_ZERO:
+
+push -1
+push rcx
+mul
+push rbx
+div
+PRROOT
+HALT
+
+C_ZERO:
+push 0 
+PRROOT
+HALT
+
+B_ZERO:
+push 0
+push rcx
+JE B_C_ZERO:
+NOROOT
+HALT
+B_C_ZERO:
+INFROOT
 HALT
