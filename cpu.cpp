@@ -3,8 +3,8 @@
 #include "cpu.h"
 
 #define DEF_CMD(name, num, arg, code) \
-    if (cmd_id[0] == num)                \
-        {cmd_stringed = #name; argcount = arg;}
+    {if (cmd_id[0] == num)                \
+        {cmd_stringed = #name; argcount = arg;}}
 
 
 void Listing(struct CPU *cpu)
@@ -195,6 +195,4 @@ void Run(struct Stack *stk1, struct CPU *cpu)
         
         #undef DEF_CMD
     }
-
-    DEB("End of run\n");
 }

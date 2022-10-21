@@ -20,12 +20,3 @@ enum CMD_BYTES
     _REG   = 2,
     _KONST = 3,
 };
-    // CMD_PUSH  = 1,
-    // CMD_POP   = 2,
-    // CMD_ADD   = 3,
-    // CMD_MUL   = 4,
-    // CMD_DIV   = 5,
-    // CMD_DUP   = 6,
-    // CMD_JMP   = 7,
-    // CMD_OUT   = 10,
-    // CMD_HALT  = 11,

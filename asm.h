@@ -64,7 +64,7 @@ bool WriteBinaryFile(int                           *opcode_buffer, int          
 
     int CountStrings(char                                                        *buffer);
 
-      int ChooseArgs(char       *opcode_tmp,                     char *            str);
+      int ChooseArgs(char       *opcode_tmp,                       char *            str);
 
        int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assembler);
 

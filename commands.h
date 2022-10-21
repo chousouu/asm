@@ -3,7 +3,6 @@
 DEF_CMD(PUSH, 1, 1,          
 {   {                                  
     int argument = GetArgument(cpu, &ip);  
-    DEB("arg of push = %d\n", argument);
     StackPush(stk1, argument);        
     }
 })
@@ -11,7 +10,7 @@ DEF_CMD(PUSH, 1, 1,
 
 DEF_CMD(POP, 2, 1,               
 {      
-    {                           
+    {  
     if(PopIn(stk1, cpu, &ip) != OK)
     {
         printf("ERROR in pop\n");
@@ -80,4 +79,81 @@ DEF_CMD(IN, 10, 0, {{int InVal = 0; scanf("%d", &InVal); StackPush(stk1, InVal);
 
 DEF_CMD(CALL, 11, 12, {{StackPush(stk1, ip + 2); ip = cpu->machine_inst[ip + 1];}})
 
-DEF_CMD(RET, 12, 12, {{ip = StackPop(stk1, &err_code);}})
+DEF_CMD(RET, 12, 0, {{ip = StackPop(stk1, &err_code); ip--;}})
+
+DEF_CMD(JA, 13, 12, 
+{
+    int a = StackPop(stk1, &err_code);
+    int b = StackPop(stk1, &err_code);
+    if(a > b)
+    {
+        ip = cpu->machine_inst[ip + 1];
+    }
+    else 
+    {
+        ip++;
+    }
+})
+
+DEF_CMD(JB, 14, 12, 
+{
+    int a = StackPop(stk1, &err_code);
+    int b = StackPop(stk1, &err_code);
+
+    if(a < b)
+    {
+        ip = cpu->machine_inst[ip + 1];
+    }
+    else 
+    {
+        ip++;
+    }
+})
+
+DEF_CMD(JE, 15, 12, 
+{
+    int a = StackPop(stk1, &err_code);
+    int b = StackPop(stk1, &err_code);
+
+    if(a == b)
+    {
+        ip = cpu->machine_inst[ip + 1];
+    }
+    else 
+    {
+        ip++;
+    }
+})
+
+DEF_CMD(JNE, 16, 12, 
+{
+    int a = StackPop(stk1, &err_code);
+    int b = StackPop(stk1, &err_code);
+
+    if(a != b)
+    {
+        ip = cpu->machine_inst[ip + 1];
+    }
+    else 
+    {
+        ip++;
+    }
+})
+
+DEF_CMD(SQRT, 17, 0, 
+{
+    int a = StackPop(stk1, &err_code);
+
+    StackPush(stk1, sqrt(a));
+})
+
+DEF_CMD(PRROOT, 18, 0, 
+{
+    int root = StackPop(stk1, &err_code);
+
+    printf("x = %d\n", root);
+})
+
+DEF_CMD(NOROOT, 19, 0, {{printf("No roots\n");}})
+    
+DEF_CMD(INFROOT, 20, 0, {{printf("Inf roots\n");}})

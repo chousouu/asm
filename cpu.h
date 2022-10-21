@@ -2,6 +2,7 @@
 #define CPU_H
 
 #include <sys/stat.h>
+#include <math.h>
 
 const int REG_COUNT = 5;
 const int RAM_MAX = 40;
@@ -18,15 +19,16 @@ struct CPU
 
 
 const int LILY_REVERTED = 1498171724;
-int   GetArgument   (struct CPU *cpu, int *ip)            ;
+
+int GetArgument(struct CPU *cpu, int *ip);
 
 int PopIn(struct Stack *stk1, struct CPU *cpu, int *ip);
 
-bool  CheckSignature(int *machine_inst)                                            ;
+bool CheckSignature(int *machine_inst);
 
-int  *ReadToBuffer  (const char *filename, int size)                                      ;
+int *ReadToBuffer(const char *filename, int size);
 
-int   CountInts     (const char *filename)                                                ;
+int CountInts(const char *filename);
 
 void Run(struct Stack *stk1, struct CPU *cpu);
 

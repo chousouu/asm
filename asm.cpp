@@ -301,7 +301,7 @@ int ChooseArgs(char *opcode_tmp, char *str)
 }
 
 #define DEF_CMD(name, num, arg, code)                                                                       \
-else if(strincmp(cmd, #name, cmd_size) == 0)                                                                \
+else if(cmd_size != 0 && strincmp(cmd, #name, cmd_size) == 0)                                               \
 {                                                                                                           \
     if(arg > 0)                                                                                             \
     {                                                                                                       \
@@ -339,7 +339,7 @@ else if(strincmp(cmd, #name, cmd_size) == 0)                                    
 
 
 int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assembler)
-{//TODO strincmp counts ("dup", "dup", 3) == ("d", "dup", 1)
+{
     int *opcode_buffer = (int*)calloc(3 * assembler->strings_count, sizeof(int));
 // consider resizing array
     int ip = 0;
@@ -354,7 +354,7 @@ int *Assemble(char **stringed_buffer, struct Label *labels, struct ASM *assemble
 
         sscanf(stringed_buffer[i], "%[^:-123456789 ]%n", cmd, &cmd_size);
 
-        if(strincmp(cmd, "dup", cmd_size) == 0)
+        if(cmd_size != 0 && strincmp(cmd, "dup", cmd_size) == 0)
         {
             if(prev_two_arg == 1)
             {
