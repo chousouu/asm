@@ -1,0 +1,79 @@
+IN ;a
+IN ;b
+IN ;c
+pop rcx
+pop rbx 
+pop rax 
+
+CALL :1; discrim 
+
+push 0
+push rdx
+
+JE :2
+
+push 0
+push rdx
+
+JA :3
+
+push 0
+push rdx
+
+JB :4 
+
+HALT
+
+
+
+
+:1;discrim
+push rbx
+push rbx
+mul 
+push 4
+push rax
+push rcx
+mul
+mul 
+sub 
+RET 
+
+:2; disc == 0
+push -1
+push rbx
+mul 
+push 2
+push rax
+mul
+div
+OUT
+HALT
+
+:3; disc > 0
+push -1
+push rbx
+mul
+push rdx
+SQRT
+add
+push 2
+push rax 
+mul
+div 
+PRROOT
+push -1
+push rbx
+mul
+push rdx
+SQRT
+sub
+push 2
+push rax 
+mul
+div 
+PRROOT
+HALT
+
+:4; discrim < 0
+HALT
