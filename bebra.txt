@@ -38,6 +38,16 @@ sub
 pop rdx
 RET 
 
+DISC_ZERO:
+push -1
+push rbx
+mul 
+push 2
+push rax
+mul
+div
+OUT
+HALT
 
 DISC_POSITIVE:; disc > 0
 push -1
@@ -66,17 +76,5 @@ PRROOT
 HALT
 
 DISC_NEG:; discrim < 0
+NOROOT
 HALT
-HALT
-
-DISC_ZERO:
-push -1
-push rbx
-mul 
-push 2
-push rax
-mul
-div
-PRROOT
-HALT
-
