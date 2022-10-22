@@ -1,20 +1,24 @@
-IN
-pop rcx ;factorial of number
-push 1
-pop rax
-ITER:
-Push rcx
-push 1
-JE END:
-push rax
-push rcx
-mul
-pop rax
-push rcx
-push 1
-sub
+IN 
 pop rcx
-CALL ITER:
-END:
+push 1 
+pop rax
 
+RECURSIVE:
+    push 1
+    push rcx
+    JBE END:
+    
+    push rax
+    push rcx
+    mul
+    pop rax
+
+    push rcx
+    DEC
+    pop rcx
+
+CALL RECURSIVE:
+
+
+END:
 HALT
