@@ -112,7 +112,7 @@ void RemoveSpaces(char *buffer, int size)
     int check = 1;
     int i = 0; //for before array
     int k = 0; // counter for after array
-    for(i = 0; i < size; i++) // ?or for(i = 0; i < size, c = buffer[i]; i++)   
+    for(i = 0; i < size; i++)    
     {
         c = buffer[i];
         if(c == '\n' && check == 0)
@@ -408,7 +408,7 @@ int main()
 
     if(assembler.jmp_after == NULL)
     {
-        printf("assembler.jmp_after == NULL\n");
+        printf("Couldnt allocate memory for assembler.jmp_after (== NULL)\n");
         return 0;
     }
     
