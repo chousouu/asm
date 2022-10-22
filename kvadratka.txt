@@ -52,7 +52,8 @@ push 2
 push rax
 mul
 div
-OUT
+push 1
+PRROOT
 HALT
 
 DISC_POSITIVE:
@@ -66,6 +67,7 @@ push 2
 push rax 
 mul
 div 
+push 1
 PRROOT
 
 push -1
@@ -78,11 +80,14 @@ push 2
 push rax 
 mul
 div 
+push 2
 PRROOT
 HALT
 
 DISC_NEG:; discrim < 0
-NOROOT
+push 0
+push 0 ; x%d - if %d == 0 -> no roots
+PRROOT
 HALT
 
 LINEAR_EQ:
@@ -100,11 +105,13 @@ push rcx
 mul
 push rbx
 div
+push 1 ;%d
 PRROOT
 HALT
 
 C_ZERO:
-push 0 
+push 0
+push 1
 PRROOT
 HALT
 
@@ -112,8 +119,12 @@ B_ZERO:
 push 0
 push rcx
 JE B_C_ZERO:
-NOROOT
+push 0 
+push 0 ; x%d
+PRROOT
 HALT
 B_C_ZERO:
-INFROOT
+push 777
+push 777
+PRROOT
 HALT

@@ -149,11 +149,8 @@ DEF_CMD(SQRT, 17, 0,
 
 DEF_CMD(PRROOT, 18, 0, 
 {
+    int root_number = StackPop(stk1, &err_code);
     int root = StackPop(stk1, &err_code);
 
-    printf("x = %d\n", root);
+    printf("x%d = %d\n", root_number, root);
 })
-
-DEF_CMD(NOROOT, 19, 0, {{printf("No roots\n");}})
-    
-DEF_CMD(INFROOT, 20, 0, {{printf("Inf roots\n");}})
