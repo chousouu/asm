@@ -140,17 +140,40 @@ DEF_CMD(JNE, 16, 12,
     }
 })
 
-DEF_CMD(SQRT, 17, 0, 
+DEF_CMD(JBE, 17, 12, 
+{
+    int a = StackPop(stk1, &err_code);
+    int b = StackPop(stk1, &err_code);
+
+    if(a <= b)
+    {
+        ip = cpu->machine_inst[ip + 1];
+    }
+    else 
+    {
+        ip++;
+    }
+})
+
+DEF_CMD(SQRT, 18, 0, 
 {
     int a = StackPop(stk1, &err_code);
 
     StackPush(stk1, sqrt(a));
 })
 
-DEF_CMD(PRROOT, 18, 0, 
+DEF_CMD(PRROOT, 19, 0, 
 {
     int root_number = StackPop(stk1, &err_code);
     int root = StackPop(stk1, &err_code);
 
     printf("x%d = %d\n", root_number, root);
+})
+
+DEF_CMD(INC, 20, 0, {
+    StackPush(stk1, StackPop(stk1, &err_code) + 1);
+})
+
+DEF_CMD(DEC, 21, 0, {
+    StackPush(stk1, StackPop(stk1, &err_code) - 1);
 })
