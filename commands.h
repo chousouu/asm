@@ -75,7 +75,17 @@ DEF_CMD(OUT, 8, 0,
 
 DEF_CMD(HALT, 9, 0, {{printf("Program completed\n");}})
     
-DEF_CMD(IN, 10, 0, {{int InVal = 0; scanf("%d", &InVal); StackPush(stk1, InVal);}})
+DEF_CMD(IN, 10, 0, 
+{
+    {
+        double DubVal = 0; 
+        scanf("%lf", &DubVal);
+        DubVal *= 1000;
+        printf("DUBVAL = %lf [%d]\n", DubVal, (int)DubVal);
+
+        StackPush(stk1, (int)DubVal);
+    }
+})
 
 DEF_CMD(CALL, 11, 12, {{StackPush(stk1, ip + 2); ip = cpu->machine_inst[ip + 1];}})
 
@@ -167,7 +177,7 @@ DEF_CMD(PRROOT, 19, 0,
     int root_number = StackPop(stk1, &err_code);
     int root = StackPop(stk1, &err_code);
 
-    printf("x%d = %d\n", root_number, root);
+    printf("x%d = %.3lf\n", root_number, (double)root);
 })
 
 DEF_CMD(INC, 20, 0, {
