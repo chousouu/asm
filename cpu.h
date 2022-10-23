@@ -5,7 +5,7 @@
 #include <math.h>
 
 const int REG_COUNT = 5;
-const int RAM_MAX = 7650;
+const int RAM_MAX = 200;
 const int OK = 999;
 const int NOT_OK = -999;
 

@@ -1,0 +1,77 @@
+push 3
+pop rax ; R
+
+    push rax
+    push -1
+    mul
+    dec
+    pop rbx ; y = -R - 1
+
+Y_LOOP:
+    push rbx
+    inc 
+    pop rbx
+
+    push rax 
+    push rbx 
+
+JA END_LOOP: ; "-y" > y
+
+push rax
+push -1
+mul
+pop rcx ; x = -R
+
+X_LOOP:
+
+push rax
+push rcx
+
+JA Y_LOOP: ; "-x" > x
+
+    ;finds place to place * or  
+        push rax
+        push 2
+        mul ; 2 * rax
+        push rbx
+        mul 
+        push rcx
+        add ; 2*R * y + x
+        pop rdx
+
+    
+    ; CHECK  X^2 + y^2 <= R^2
+    push rcx
+    push rcx
+    mul 
+    push rbx
+    push rbx
+    mul
+    add
+
+    push rax
+    push rax
+    mul
+
+; x++
+    push rcx 
+    inc 
+    pop rcx
+ 
+JA NO:
+
+YES: 
+push 42 ; * 
+pop[rdx]
+jmp X_LOOP:
+
+NO:
+push 32 ; ' '
+pop [rdx] 
+jmp X_LOOP:
+
+
+END_LOOP:
+
+DRAW
+HALT
