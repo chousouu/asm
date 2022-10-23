@@ -1,6 +1,7 @@
-#include "cpu.h"
 #include "stack.h"
+#include "cpu.h"
 #include "enum.h"
+#include "vidmem.h"
 
 int main()
 {
@@ -28,18 +29,20 @@ int main()
 
     if(CheckSignature(cpu.machine_inst))
     {
+        FillRam(&cpu);
+        
         Run(&stk1, &cpu);
         
-        DEB("stackprint: \n");
-        DEBUGStackPrint(&stk1);
+        // DEB("stackprint: \n");
+        // DEBUGStackPrint(&stk1);
 
-        DEB("RAM :\n");
-        for(int i = 0; i < RAM_MAX; i++)
-            DEB("%d ", cpu.RAM[i]);
+        // DEB("RAM :\n");
+        // for(int i = 0; i < RAM_MAX; i++)
+        //     DEB("%d ", cpu.RAM[i]);
         
-        DEB("REG:\n");
-        for(int i = 1; i < REG_COUNT; i++)
-            DEB("%d ", cpu.reg[i]);
+        // DEB("REG:\n");
+        // for(int i = 1; i < REG_COUNT; i++)
+        //     DEB("%d ", cpu.reg[i]);
         
         Listing(&cpu);
     }

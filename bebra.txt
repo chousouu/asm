@@ -1,119 +1,20 @@
-IN ;a
-IN ;b
-IN ;c
-pop rcx
-pop rbx 
-pop rax 
+push 7575
+pop rax ; ram size 
 
 push 0
+pop rbx ; counter 
+
+WHILE: ; != rax
+
+push [rbx]
+PRINT
+push rbx
+inc
+pop rbx
+
+
+push rbx
 push rax
+JNE WHILE:
 
-JE LINEAR_EQ:
-
-CALL DISC: 
-
-push 0
-push rdx
-
-JE DISC_ZERO:
-
-push 0
-push rdx
-
-JA DISC_POSITIVE:
-
-push 0
-push rdx
-
-JB DISC_NEG: 
-
-
-HALT
-
-
-DISC:
-push rbx
-push rbx
-mul 
-push 4
-push rax
-push rcx
-mul
-mul 
-sub 
-pop rdx
-RET 
-
-DISC_ZERO:
-push -1
-push rbx
-mul 
-push 2
-push rax
-mul
-div
-OUT
-HALT
-
-DISC_POSITIVE:
-push -1
-push rbx
-mul
-push rdx
-SQRT
-add
-push 2
-push rax 
-mul
-div 
-PRROOT
-
-push -1
-push rbx
-mul
-push rdx
-SQRT
-sub
-push 2
-push rax 
-mul
-div 
-PRROOT
-HALT
-
-DISC_NEG:; discrim < 0
-NOROOT
-HALT
-
-LINEAR_EQ:
-
-push 0
-push rbx
-JE B_ZERO:
-
-push 0 
-push rcx
-JE C_ZERO:
-
-push -1
-push rcx
-mul
-push rbx
-div
-PRROOT
-HALT
-
-C_ZERO:
-push 0 
-PRROOT
-HALT
-
-B_ZERO:
-push 0
-push rcx
-JE B_C_ZERO:
-NOROOT
-HALT
-B_C_ZERO:
-INFROOT
 HALT

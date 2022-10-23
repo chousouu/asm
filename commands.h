@@ -187,3 +187,10 @@ DEF_CMD(INC, 20, 0, {
 DEF_CMD(DEC, 21, 0, {
     StackPush(stk1, StackPop(stk1, &err_code) - 1);
 })
+
+DEF_CMD(PRINT, 22, 0, 
+{
+    {
+        printf("%c", StackTop(stk1, &err_code));
+    }
+})
